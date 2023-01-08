@@ -1,6 +1,7 @@
 import numpy as np
 import librosa
 import matplotlib.pyplot as plt
+from scipy.fftpack import fft
 
 def getRMS(x):
 
@@ -18,7 +19,50 @@ def getLoudness():
 def eraAca():
     return None
 
-def loadAudio(pathAudio, fs):
+def normVector(v):
+    norm=np.linalg.norm(v)
+    if norm==0:
+        norm=np.finfo(v.dtype).eps
+    return v/norm
+
+def cosineSimilariy(x1, x2):
+    x1 = normVector(x1)
+    x2 = normVector(x2)
+
+    return np.dot(x1, x2)
+
+def euclideanDistance(x1, x2):
+    dist = (x1 - x2)**2
+    return np.sqrt(np.sum(dist)/len(x1) )
+
+def nextPower2(N):
+    return  2**(N-1).bit_length()
+
+def DFT(x, w, N):
+    """
+	Analysis of a signal using the discrete Fourier transform
+	x: input signal, w: analysis window, N: FFT size 
+	returns mX, pX: magnitude and phase spectrum
+	"""
+    tol = 1e-14
+    if w.size > N:  # raise error if window size bigger than fft size
+        raise ValueError("Window size (M) is bigger than FFT size")
+
+    hN = (N // 2) + 1  # size of positive spectrum, it includes sample 0
+    hM1 = (w.size + 1) // 2  # half analysis window size by rounding
+    hM2 = w.size // 2  # half analysis window size by floor
+    fftbuffer = np.zeros(N)  # initialize buffer for FFT
+    w = w / sum(w)  # normalize analysis window
+    xw = x * w  # window the input sound
+    fftbuffer[:hM1] = xw[hM2:]  # zero-phase window in fftbuffer
+    fftbuffer[-hM2:] = xw[:hM2]
+    X = fft(fftbuffer)  # compute FFT
+    absX = abs(X[:hN])  # compute ansolute value of positive side
+    absX[absX < np.finfo(float).eps] = np.finfo(float).eps  # if zeros add epsilon to handle log
+    mXdB = 20 * np.log10(absX)  # magnitude spectrum of positive frequencies in dB
+    return mXdB, absX
+
+def loadAudio(pathAudio, fs=22050):
     x, fs = librosa.load(pathAudio, sr=fs, mono=True)
     return x, fs
 
